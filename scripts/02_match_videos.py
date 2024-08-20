@@ -53,10 +53,10 @@ def generate_matching(videos_dir: str):
     # generate matching pairs
     matching_pairs = []
     for handheld, topdown in zip(handheld_videos, topdown_videos):
-        matching_pairs.append((
-            os.path.abspath(handheld["path"]),
-            os.path.abspath(topdown["path"])
-        ))
+        matching_pairs.append({
+            "handheld": os.path.abspath(handheld["path"]),
+            "topdown":  os.path.abspath(topdown[ "path"])
+        })
     return matching_pairs
 
 
