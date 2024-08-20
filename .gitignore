@@ -171,3 +171,4 @@ test_video.mp4
 output.mp4
 concatenated.mp4
 temp_frames/
+trajectory.json
