@@ -3,13 +3,20 @@ import glob
 import json
 import cv2
 from cv2 import aruco
+import argparse
 import numpy as np
 from tqdm import tqdm
+from colorama import Fore, Back, Style
 
 
 def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
     '''
     Extracts the trajectory (relative to the first frame) of the camera from the video file. 
+    Args:
+        video_file: The path to the video file.
+        aruco_config_file: The path to the ArUco config file.
+    Returns:
+        A list of dictionaries, where each dictionary contains the translation vector and rotation vector of the camera related to the first frame.
     '''
     assert os.path.exists(video_file), f"Video file {video_file} does not exist."
     assert os.path.exists(aruco_config_file), f"ArUco config file {aruco_config_file} does not exist."
@@ -49,7 +56,7 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
 
     is_first_frame = True
 
-    with tqdm(total=total_frames, desc='Processing video') as pbar:
+    with tqdm(total=total_frames, desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
             ret, frame = cap.read()
@@ -145,32 +152,59 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
     return trajectory
 
 
-def extract_trajectory_from_path(topdown_path: str):
-    pass
+def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
+    '''
+    Extracts the trajectory of the camera from the topdown video files.
+    Args:
+        topdown_dir: The directory containing topdown videos.
+        aruco_config_file: The path to the ArUco config file.
+    Returns:
+        A list of dictionaries, where each dictionary contains the video file path and the trajectory.
+    '''
+    assert os.path.exists(topdown_dir), f"Directory {topdown_dir} does not exist."
+    assert os.path.isdir(topdown_dir), f"{topdown_dir} is not a directory."
 
+    # Get all the video files in the directory
+    video_files = glob.glob(os.path.join(topdown_dir, '*.mp4')) + \
+                  glob.glob(os.path.join(topdown_dir, '*.MP4'))
+    assert len(video_files) > 0, f"No video files found in {topdown_dir}."
+
+    # Extract the trajectory from each video file
+    trajectories = []
+    for video_file in tqdm(video_files, desc='Processing videos'):
+        trajectory = extract_trajectory_from_video(video_file, aruco_config_file)
+        trajectories.append({
+            'video_file': video_file,
+            'trajectory': trajectory
+        })
+    
+    return trajectories
 
 
 def parse_args():
-    pass
+    parser = argparse.ArgumentParser(description='Extract the trajectories of the camera from topdown videos.')
+    parser.add_argument('--topdown_dir', type=str, help='The directory containing topdown videos.')
+    parser.add_argument('--aruco_config_file', type=str, help='The path to the ArUco config file.')
+    parser.add_argument('--trajectory_save_path', type=str, help='The path to save the extracted trajectory.')
+    return parser.parse_args()
 
 
 def main(args):
-    pass
+    topdown_dir          = args.topdown_dir
+    aruco_config_file    = args.aruco_config_file
+    trajectory_save_path = args.trajectory_save_path
 
+    # extract trajectories
+    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file)
 
-def test():
-    trajectory = extract_trajectory_from_video(
-        '/Users/max/Desktop/ArUco-Trajectory-Extraction/videos/topdown/GX010409.MP4', \
-        '/Users/max/Desktop/ArUco-Trajectory-Extraction/configs/tag/aruco_config.json'
-    )
-    return trajectory
+    # save trajectories
+    if not os.path.exists(os.path.dirname(trajectory_save_path)):
+        os.makedirs(os.path.dirname(trajectory_save_path))
+    with open(trajectory_save_path, 'w') as f:
+        json.dump(trajectories, f, indent=4)
+    print(f"{Fore.GREEN}Trajectories saved at {trajectory_save_path}{Style.RESET_ALL}")
 
 
 if __name__ == '__main__':
-    trajectory = test()
-    with open('trajectory.json', 'w') as f:
-        json.dump(trajectory, f, indent=4)
-
-# if __name__ == '__main__':
-#     args = parse_args()
-#     main(args)
+    args = parse_args()
+    main(args)
