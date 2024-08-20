@@ -75,12 +75,16 @@ class Callibrator(object):
         '''
         assert self.camera_type in ['pinhole', 'fisheye'], "Invalid camera type."
 
+        print(images)
+
         images_list = []
 
         # handel different types of input
         if isinstance(images, str):
             # single save_dir to images
-            image_paths = glob.glob('./images/*.png') + glob.glob('./images/*.jpg')
+            images_dir = images
+            image_paths = glob.glob(os.path.join(images_dir, '*.jpg')) \
+                          + glob.glob(os.path.join(images_dir, '*.png'))
             for img_path in image_paths:
                 img = cv2.imread(img_path)
                 images_list.append(img)
@@ -93,7 +97,7 @@ class Callibrator(object):
             else:
                 # a list of images
                 images_list = images
-        
+
         _img_shape = None
         imgpoints = []
 
@@ -105,6 +109,7 @@ class Callibrator(object):
                 cv2.CALIB_CB_NORMALIZE_IMAGE
         
         # find the chess board corners
+        gray = None
         for img in images_list:
             if _img_shape is None:
                 _img_shape = img.shape[:2]
@@ -117,6 +122,7 @@ class Callibrator(object):
                 self.objpoints.append(self.objp)
                 cv2.cornerSubPix(gray, corners, (3, 3), (-1, -1), self.subpix_criteria)
                 imgpoints.append(corners)
+        assert gray is not None, "No valid images found."
         
         N_OK = len(self.objpoints)
         K = np.zeros((3, 3))
