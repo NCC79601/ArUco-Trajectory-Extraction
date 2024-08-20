@@ -1,6 +1,6 @@
 import os
 import glob
-import yaml
+import json
 import argparse
 from colorama import Fore, Back, Style
 try:
@@ -73,9 +73,9 @@ def parse_args():
 def main(args):
     matching_pairs = generate_matching(args.videos_dir)
     print(f"Found {len(matching_pairs)} matching pairs of videos")
-    output_path = os.path.join(args.videos_dir, "matching_pairs.yaml")
+    output_path = os.path.join(args.videos_dir, "matching_pairs.json")
     with open(output_path, "w") as f:
-        yaml.dump(matching_pairs, f)
+        json.dump(matching_pairs, f, indent=4)
 
 
 if __name__ == '__main__':

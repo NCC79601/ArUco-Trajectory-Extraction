@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 import glob
-import yaml
+import json
 import os
 from typing import Union
 from colorama import Fore
@@ -175,31 +175,31 @@ class Callibrator(object):
         }
         self.calibration = calibration
     
-    def save_calibration(self, save_path: str = './calibration.yaml') -> None:
+    def save_calibration(self, save_path: str = './calibration.json') -> None:
         '''
-        Save the calibration results into a yaml file
+        Save the calibration results into a json file
 
         Parameters:
-        - save_path: path for the yaml file
+        - save_path: path for the json file
         '''
         if self.calibration is None:
             raise ValueError('No calibration data found. Please calibrate first.')
         with open(save_path, 'w') as f:
-            yaml.dump(self.calibration, f)
+            json.dump(self.calibration, f, indent=4)
         print(f'Results saved in {save_path}')
 
-    def load_calibration(self, calibration_path: str = './calibration.yaml') -> dict:
+    def load_calibration(self, calibration_path: str = './calibration.json') -> dict:
         '''
-        Load the calibration results from a yaml file.
+        Load the calibration results from a json file.
 
         Parameters:
-        - calibration_path: path to the existing calibration yaml file
+        - calibration_path: path to the existing calibration json file
 
         Returns:
         - calibration: calibration results
         '''
         with open(calibration_path, 'r') as f:
-            calibration = yaml.safe_load(f)
+            calibration = json.load(f)
         self.calibration = calibration
         return calibration
 

@@ -20,7 +20,7 @@ def main(args):
     # perform callibration
     callibrator = Callibrator(camera_name=args.camera_name, camera_type=args.camera_type)
     callibrator.calibrate(images=os.path.join(camera_workdir, 'images'))
-    callibrator.save_calibration(os.path.join(camera_workdir, 'calibration.yaml'))
+    callibrator.save_calibration(os.path.join(camera_workdir, 'calibration.json'))
 
 
 if __name__ == '__main__':
