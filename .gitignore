@@ -167,3 +167,7 @@ configs/camera/*/images
 configs/camera/*/videos
 videos/
 .DS_Store
+test_video.mp4
+output.mp4
+concatenated.mp4
+temp_frames/
