@@ -1,7 +1,8 @@
 import os
+import sys
 import json
-import time
 import numpy as np
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from utils.vector_plotter import VectorPlotter
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ from tqdm import tqdm
 with open('trajectory.json', 'r') as f:
     trajectory = json.load(f)
 
-workdir = os.path.dirname(__file__)
+workdir = os.path.dirname(os.path.dirname(__file__))
 save_dir = os.path.join(workdir, 'temp_frames')
 
 save = True

@@ -32,7 +32,7 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
 
     # TODO: refactor the file structure
     # load camera calibration
-    proj_work_dir = os.path.dirname(__file__)
+    proj_work_dir = os.path.dirname(os.path.dirname(__file__))
     config_file_path = os.path.join(proj_work_dir, 'configs', 'camera', 'GoPro_11', 'calibration.json')
     with open(config_file_path, 'r') as f:
         camera_config = json.load(f)

@@ -23,6 +23,9 @@ def save_aruco_config(aruco_config_file: str, aruco_dict: str, aruco_tag_list: l
         "aruco_dict": aruco_dict,
         "aruco_tags": aruco_tag_list
     }
+
+    if not os.path.exists(os.path.dirname(aruco_config_file)):
+        os.makedirs(os.path.dirname(aruco_config_file))
     
     with open(aruco_config_file, 'w') as f:
         json.dump(aruco_config, f, indent=4)
@@ -68,6 +71,6 @@ def get_aruco_tag_list():
 
 if __name__ == '__main__':
     aruco_tag_list = get_aruco_tag_list()
-    workdir = os.path.dirname(__file__)
+    workdir = os.path.dirname(os.path.dirname(__file__))
     save_path = os.path.join(workdir, 'configs', 'tag', 'aruco_config.json')
     save_aruco_config(save_path, "DICT_4X4_50", aruco_tag_list)

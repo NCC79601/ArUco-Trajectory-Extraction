@@ -1,5 +1,7 @@
 import os
+import sys
 import argparse
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from utils.callibrator import Callibrator
 
 
@@ -14,7 +16,7 @@ def parse_args():
 
 def main(args):
     # specify workdir
-    root_dir = os.path.dirname(__file__)
+    root_dir = os.path.dirname(os.path.dirname(__file__))
     camera_workdir = os.path.join(root_dir, 'configs', 'camera', args.camera_name)
     
     # perform callibration

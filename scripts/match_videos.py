@@ -1,12 +1,11 @@
 import os
+import sys
 import glob
 import json
 import argparse
 from colorama import Fore, Back, Style
-try:
-    from utils.video_utils import get_start_time, get_duration, crop_video
-except ImportError:
-    from .utils.video_utils import get_start_time, get_duration, crop_video
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils.video_utils import get_start_time, get_duration, crop_video
 
 
 def generate_matching(videos_dir: str):
