@@ -1,0 +1,34 @@
+# ArUco Configuration
+
+# Dictionary configuration
+dictionary:
+  name: DICT_6X6_250  # Name of the ArUco dictionary
+  marker_size: 0.1    # Size of the markers in meters
+
+# Detection configuration
+detection:
+  adaptive_threshold:
+    enable: true      # Enable adaptive thresholding
+    block_size: 7     # Block size for adaptive thresholding
+    constant: 7       # Constant for adaptive thresholding
+  corner_refinement:
+    enable: true      # Enable corner refinement
+    method: HARRIS    # Corner refinement method (HARRIS or SUBPIX)
+    win_size: 5       # Window size for corner refinement
+    max_iterations: 30  # Maximum iterations for corner refinement
+    min_distance: 0.01  # Minimum distance for corner refinement
+
+# Camera configuration
+camera:
+  image_width: 640    # Width of the camera image
+  image_height: 480   # Height of the camera image
+  camera_matrix:
+    - [500, 0, 320]   # Camera matrix row 1
+    - [0, 500, 240]   # Camera matrix row 2
+    - [0, 0, 1]       # Camera matrix row 3
+  distortion_coefficients:
+    - 0.1             # Distortion coefficient k1
+    - 0.2             # Distortion coefficient k2
+    - 0.0             # Distortion coefficient p1
+    - 0.0             # Distortion coefficient p2
+    - 0.0             # Distortion coefficient k3
