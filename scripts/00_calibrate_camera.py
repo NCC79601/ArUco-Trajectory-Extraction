@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from utils.callibrator import Callibrator
+from utils.calibrator import Calibrator
 
 
 def parse_args():
@@ -19,10 +19,10 @@ def main(args):
     root_dir = os.path.dirname(os.path.dirname(__file__))
     camera_workdir = os.path.join(root_dir, 'configs', 'camera', args.camera_name)
     
-    # perform callibration
-    callibrator = Callibrator(camera_name=args.camera_name, camera_type=args.camera_type)
-    callibrator.calibrate(images=os.path.join(camera_workdir, 'images'))
-    callibrator.save_calibration(os.path.join(camera_workdir, 'calibration.json'))
+    # perform calibration
+    calibrator = Calibrator(camera_name=args.camera_name, camera_type=args.camera_type)
+    calibrator.calibrate(images=os.path.join(camera_workdir, 'images'))
+    calibrator.save_calibration(os.path.join(camera_workdir, 'calibration.json'))
 
 
 if __name__ == '__main__':

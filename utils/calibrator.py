@@ -8,7 +8,7 @@ import os
 from typing import Union
 from colorama import Fore
 
-class Callibrator(object):
+class Calibrator(object):
     '''
     Class for calibrating fisheye camera.
 
@@ -34,7 +34,7 @@ class Callibrator(object):
                 cv2.fisheye.CALIB_FIX_SKEW
         ) -> None:
         '''
-        Initialize the callibrator.
+        Initialize the calibrator.
 
         Parameters:
         - camera_name: str, name of the camera
