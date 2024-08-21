@@ -3,7 +3,9 @@
 ## 1 Usage
 
 ### 1.1 Configure pipeline
-In the JSON format config file `./configs/pipeline_config.json`, you can configure the file paths of topdown and handheld camera calibration results (TODO), and decide whether to skip any of the processing steps.
+In the JSON format config file `./configs/pipeline_config.json`, you can configure the pipeline by setting the following parameters:
+- The paths of topdown and handheld camera calibration results (TODO).
+- Whether to skip any of the processing steps.
 
 ### 1.2 Prepare files
 
