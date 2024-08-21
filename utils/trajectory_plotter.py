@@ -61,17 +61,6 @@ def plot_trajectory(
             Rot_mat @ forward
         ], tvec, axis_lim=[-0.4, 0.4], scale=0.3)
 
-    for pose in tqdm(trajectory, desc="Drawing trajectory"):
-        tvec = pose["tvec"]
-        rvec = pose["rvec"]
-        # print(f' > drawing pose: tvec={tvec}, rvec={rvec}')
-        Rot_mat = R.from_rotvec(rvec).as_matrix()
-        plotter.update_vectors([
-            Rot_mat @ left,
-            Rot_mat @ up,
-            Rot_mat @ forward
-        ], tvec, axis_lim=[-0.4, 0.4], scale=0.3)
-
     # Use ffmpeg to convert the plotted frames to a video
     os.system(f'ffmpeg -framerate 60 -i {temp_frame_dir}/%06d.png -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p -vf "scale=-1:{video_height}" {plot_video_path}')
 
