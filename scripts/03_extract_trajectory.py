@@ -184,7 +184,7 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
     for video_file in tqdm(video_files, desc='Processing videos'):
         trajectory = extract_trajectory_from_video(video_file, aruco_config_file)
         trajectories.append({
-            'video_file': video_file,
+            'video_file': os.path.abspath(video_file),
             'trajectory': trajectory
         })
     
