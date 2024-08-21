@@ -31,7 +31,11 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
         aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     else:
         raise NotImplementedError(f"ArUco dictionary {aruco_dict} is currently not supported.")
-    id_of_interest = [tag['id'] for tag in aruco_tags] # ids of interest
+    
+    id_of_interest = []
+    for tag in aruco_tags:
+        if not tag["is_gripper"]:
+            id_of_interest.append(tag["id"]) # ids of interest
     id_to_tag_map = {tag['id']: tag for tag in aruco_tags} # id to tag mapping
 
     # Load the video
@@ -56,6 +60,8 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
 
     is_first_frame = True
 
+    frame_id = 0
+
     with tqdm(total=total_frames, desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
@@ -74,18 +80,20 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
             current_rvec = None
 
             if ids is not None:
-                rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(corners, 0.05, cameraMatrix, distCoeffs)
+                rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(corners, 0.1, cameraMatrix, distCoeffs) # default marker size 0.1
                 
                 for i in range(len(ids)):
                     if ids[i][0] not in id_of_interest:
                         continue
 
-                    id = ids[i][0]
-                    tvec_cam_tag = tvecs[i][0]
+                    id  = ids[i][0]
+                    tag = id_to_tag_map[id]
+
+                    marker_size = tag["size"]
+                    tvec_cam_tag = tvecs[i][0] * marker_size / 0.1 # convert to real world size
                     rvec_cam_tag = rvecs[i][0]
                     R_cam_tag = cv2.Rodrigues(rvec_cam_tag)[0]
 
-                    tag = id_to_tag_map[id]
 
                     # transform to the block frame
                     rvec_block_tag = np.array(tag["rot_vec"], dtype=float)
@@ -139,11 +147,13 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
             else:
                 # Save the current pose
                 current_pose = {
-                    'tvec': current_tvec.tolist(),
-                    'rvec': current_rvec.tolist()
+                    'frame_id': frame_id,
+                    'tvec':     current_tvec.tolist(),
+                    'rvec':     current_rvec.tolist()
                 }
                 trajectory.append(current_pose)
             
+            frame_id += 1
             pbar.update(1)
     
     # Release the video capture
@@ -154,7 +164,7 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
 
 def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
     '''
-    Extracts the trajectory of the camera from the topdown video files.
+    Extracts trajectories of the camera from the topdown video files.
     Args:
         topdown_dir: The directory containing topdown videos.
         aruco_config_file: The path to the ArUco config file.
@@ -185,7 +195,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Extract the trajectories of the camera from topdown videos.')
     parser.add_argument('--topdown_dir', type=str, help='The directory containing topdown videos.')
     parser.add_argument('--aruco_config_file', type=str, help='The path to the ArUco config file.')
-    parser.add_argument('--trajectory_save_path', type=str, help='The path to save the extracted trajectory.')
+    parser.add_argument('--trajectory_save_path', type=str, help='The path to save the extracted trajectoris.')
     return parser.parse_args()
 
 
