@@ -184,7 +184,7 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
     for video_file in tqdm(video_files, desc='Processing videos'):
         trajectory = extract_trajectory_from_video(video_file, aruco_config_file)
         trajectories.append({
-            'video_file': os.path.abspath(video_file),
+            'video_path': os.path.abspath(video_file),
             'trajectory': trajectory
         })
     
@@ -193,9 +193,9 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Extract the trajectories of the camera from topdown videos.')
-    parser.add_argument('--topdown_dir', type=str, help='The directory containing topdown videos.')
-    parser.add_argument('--aruco_config_file', type=str, help='The path to the ArUco config file.')
-    parser.add_argument('--trajectory_save_path', type=str, help='The path to save the extracted trajectoris.')
+    parser.add_argument('--topdown_dir', type=str, required=True, help='The directory containing topdown videos.')
+    parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
+    parser.add_argument('--trajectory_save_path', type=str, required=True, help='The path to save the extracted trajectoris.')
     return parser.parse_args()
 
 

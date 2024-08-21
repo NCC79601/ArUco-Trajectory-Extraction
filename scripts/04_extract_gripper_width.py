@@ -162,7 +162,7 @@ def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
     for video_file in tqdm(video_files, desc='Processing videos'):
         gripper_width = extract_gripper_width_from_video(video_file, aruco_config_file)
         gripper_widths.append({
-            'video_file': video_file,
+            'video_path': os.path.abspath(video_file),
             'gripper_width': gripper_width
         })
     
