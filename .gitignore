@@ -167,8 +167,13 @@ configs/camera/*/images
 configs/camera/*/videos
 videos/
 .DS_Store
+
 test_video.mp4
 output.mp4
 concatenated.mp4
+undistorted_video.mp4
+
 temp_frames/
+
 trajectory.json
+gripper_widths.json
