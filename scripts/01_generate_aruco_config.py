@@ -50,7 +50,8 @@ def get_aruco_tag_list():
         "id": 8,
         "size": 0.06, # meters
         "xyz": [0.0, 0.03, 0.0], # meters
-        "rot_vec": rot_vec_08_w
+        "rot_vec": rot_vec_08_w,
+        "is_gripper": False,
     }
     aruco_tag_list.append(tag_08)
 
@@ -62,9 +63,27 @@ def get_aruco_tag_list():
         "id": 9,
         "size": 0.06, # meters
         "xyz": [0.0, 0.0, -0.03], # meters
-        "rot_vec": rot_vec_09_w
+        "rot_vec": rot_vec_09_w,
+        "is_gripper": False,
     }
     aruco_tag_list.append(tag_09)
+
+    # gripper tags
+    # tag #00
+    tag_00 = {
+        "id": 0,
+        "size": 0.02,
+        "is_gripper": True
+    }
+    aruco_tag_list.append(tag_00)
+
+    # tag #01
+    tag_01 = {
+        "id": 1,
+        "size": 0.02,
+        "is_gripper": True
+    }
+    aruco_tag_list.append(tag_01)
         
     return aruco_tag_list
 
