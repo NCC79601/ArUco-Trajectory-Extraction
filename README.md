@@ -10,7 +10,7 @@ In the JSON format config file `./configs/pipeline_config.json`, you can configu
 ### 1.2 Prepare files
 
 #### 1.2.1 Images for camera calibration
-- Capture images of 6x9 chessboard from topdown and handheld camera. 
+- Capture images of 6x9 chessboard (10+ images covering diverse angles are recommended, for better calibration results) from topdown and handheld camera. 
 - Put the images under directory `./configs/camera/<CAMERA_NAME>/images`, in which `<CAMERA_NAME>` is the name of the camera which will be used later in calibration.
 
 #### 1.2.2 Videos for trajectory extraction
