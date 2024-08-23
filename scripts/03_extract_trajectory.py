@@ -4,9 +4,14 @@ import json
 import cv2
 from cv2 import aruco
 import argparse
+import multiprocessing
 import numpy as np
 from tqdm import tqdm
 from colorama import Fore, Back, Style
+import concurrent
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+num_workers = multiprocessing.cpu_count()
 
 
 def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downsample_factor: int):
@@ -163,7 +168,10 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
     # Release the video capture
     cap.release()
 
-    return trajectory
+    return {
+        'video_path': os.path.abspath(video_file),
+        'trajectory': trajectory
+    }
 
 
 def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downsample_factor: int):
@@ -186,12 +194,37 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downs
 
     # Extract the trajectory from each video file
     trajectories = []
-    for video_file in tqdm(video_files, desc='Processing videos'):
-        trajectory = extract_trajectory_from_video(video_file, aruco_config_file, downsample_factor)
-        trajectories.append({
-            'video_path': os.path.abspath(video_file),
-            'trajectory': trajectory
-        })
+
+    with tqdm(total=len(video_files)) as pbar:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = set()
+
+            for video_file in video_files:
+                if len(futures) >= num_workers:
+                    # limit the number of concurrent processes
+                    done, futures = concurrent.futures.wait(
+                        futures, 
+                        return_when=concurrent.futures.FIRST_COMPLETED
+                    )
+                    
+                    # collect the results
+                    for future in done:
+                        trajectories.append(future.result())
+                        pbar.update(1)
+                    
+                # add new process
+                futures.add(executor.submit(
+                    extract_trajectory_from_video,
+                    video_file,
+                    aruco_config_file,
+                    downsample_factor
+                ))
+            
+            # wait for the remaining processes to finish
+            done, futures = concurrent.futures.wait(futures)
+            for future in done:
+                trajectories.append(future.result())
+                pbar.update(1)
     
     return trajectories
 
