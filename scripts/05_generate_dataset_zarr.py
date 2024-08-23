@@ -118,7 +118,7 @@ def generate_dataset(
 
                 eef_pos.append(trajectory[i]['tvec'])
                 eef_rot.append(trajectory[i]['rvec'])
-                _gripper_widths.append(gripper_width[j]['gripper_width'])
+                _gripper_widths.append(np.array([gripper_width[j]['gripper_width']]))
                 
                 i += 1
                 j += 1
@@ -138,7 +138,7 @@ def generate_dataset(
             demo_end_pose[:] = np.concatenate([eef_pos[-1], eef_rot[-1]])
 
             episode_data['robot0_eef_pos'] = np.array(eef_pos)
-            episode_data['robot0_eef_rot'] = np.array(eef_rot)
+            episode_data['robot0_eef_rot_axis_angle'] = np.array(eef_rot)
             episode_data['robot0_gripper_width'] = np.array(_gripper_widths)
             episode_data['robot0_demo_start_pose'] = demo_start_pose
             episode_data['robot0_demo_end_pose'] = demo_end_pose
@@ -301,8 +301,6 @@ def generate_dataset(
 
             completed, futures = concurrent.futures.wait(futures)
             pbar.update(len(completed))
-
-    print([x.result() for x in completed])
 
     # dump to disk
     output = output_path
