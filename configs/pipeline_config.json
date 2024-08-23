@@ -4,6 +4,8 @@
     "handheld_camera_calibration_file":
         "./configs/camera/GoPro_11_fisheye/calibration.json",
 
+    "frame_rate_downsample_factor": 3,
+
     "skip_calibrate_camera": true,
     "skip_generate_aruco_config": true,
     "skip_match_videos": true,

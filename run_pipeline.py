@@ -38,6 +38,8 @@ def run_pipeline(
     with open(pipeline_config_path, 'r') as f:
         pipeline_config = json.load(f)
     
+    downsample_factor = pipeline_config['frame_rate_downsample_factor']
+    
     # %% Step 00: Calibrate camera
     inform_progress('Step 00/05', 'Calibrate camera')
     if not pipeline_config['skip_calibrate_camera']:
@@ -85,6 +87,7 @@ def run_pipeline(
             '--topdown_dir', os.path.join(videos_dir, 'topdown'),
             '--aruco_config_file', './configs/tag/aruco_config.json',
             '--trajectory_save_path', os.path.join(videos_dir, 'trajectories.json'),
+            '--downsample_factor', str(downsample_factor),
         ])
     else:
         inform_skipped('Skipping extract trajectory...')
@@ -98,6 +101,7 @@ def run_pipeline(
             '--handheld_dir', os.path.join(videos_dir, 'handheld'),
             '--aruco_config_file', './configs/tag/aruco_config.json',
             '--gripper_widths_save_path', os.path.join(videos_dir, 'gripper_widths.json'),
+            '--downsample_factor', str(downsample_factor),
         ])
     else:
         inform_skipped('Skipping extract gripper width...')

@@ -28,8 +28,6 @@ def generate_dataset(
 
     dataset = []
 
-    
-
     for pairs in tqdm(matching_pairs, desc='Generating dataset'):
         handheld_path = pairs['handheld']
         topdown_path  = pairs['topdown']

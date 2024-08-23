@@ -9,12 +9,15 @@ from tqdm import tqdm
 from colorama import Fore, Back, Style
 
 
-def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4'):
+def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4', downsample_factor=1):
     '''
     Extracts the gripper width from the video file. 
     Args:
         video_file: The path to the video file.
         aruco_config_file: The path to the ArUco config file.
+        generate_undistorted_video: Whether to generate an undistorted video.
+        output_path: The path to save the undistorted video.
+        downsample_factor: The rate to downsample the video frames. Default is 1.
     Returns:
         A list of gripper widths.
     '''
@@ -71,10 +74,13 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
 
     frame_id = 0
 
-    with tqdm(total=total_frames, desc='Extracting', leave=False) as pbar:
+    with tqdm(total=int(total_frames / downsample_factor), desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
-            ret, frame = cap.read()
+            for i in range(downsample_factor):
+                ret, frame = cap.read()
+                if not ret:
+                    break
             if not ret:
                 break
             # Undistort fisheye image to pinhole image
@@ -140,12 +146,13 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
     return gripper_width_list
 
 
-def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
+def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str, downsample_factor: int = 1):
     '''
     Extracts gripper widths from all the videos in the directory.
     Args:
         handheld_dir: The directory containing handheld videos.
         aruco_config_file: The path to the ArUco config file.
+        downsample_factor: The rate to downsample the video frames. Default is 1.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the gripper widths.
     '''
@@ -160,7 +167,7 @@ def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
     # Extract the trajectory from each video file
     gripper_widths = []
     for video_file in tqdm(video_files, desc='Processing videos'):
-        gripper_width = extract_gripper_width_from_video(video_file, aruco_config_file)
+        gripper_width = extract_gripper_width_from_video(video_file, aruco_config_file, downsample_factor=downsample_factor)
         gripper_widths.append({
             'video_path': os.path.abspath(video_file),
             'gripper_width': gripper_width
@@ -174,6 +181,7 @@ def parse_args():
     parser.add_argument('--handheld_dir', type=str, required=True, help='The directory containing handheld videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--gripper_widths_save_path', type=str, default='./gripper_widths.json', help='The path to save gripper widths.')
+    parser.add_argument('--downsample_factor', type=int, default=1, help='The rate at which to downsample the video frames.')
     return parser.parse_args()
 
 
@@ -181,9 +189,10 @@ def main(args):
     handheld_dir             = args.handheld_dir
     aruco_config_file        = args.aruco_config_file
     gripper_widths_save_path = args.gripper_widths_save_path
+    downsample_factor        = args.downsample_factor
 
     # extract trajectories
-    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file)
+    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file, downsample_factor)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(gripper_widths_save_path)):

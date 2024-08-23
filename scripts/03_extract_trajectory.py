@@ -9,12 +9,13 @@ from tqdm import tqdm
 from colorama import Fore, Back, Style
 
 
-def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
+def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downsample_factor: int):
     '''
     Extracts the trajectory (relative to the first frame) of the camera from the video file. 
     Args:
         video_file: The path to the video file.
         aruco_config_file: The path to the ArUco config file.
+        downsample_factor: The rate to downsample the video frames.
     Returns:
         A list of dictionaries, where each dictionary contains the translation vector and rotation vector of the camera related to the first frame.
     '''
@@ -62,10 +63,13 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
 
     frame_id = 0
 
-    with tqdm(total=total_frames, desc='Extracting', leave=False) as pbar:
+    with tqdm(total=int(total_frames / downsample_factor), desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
-            ret, frame = cap.read()
+            for i in range(downsample_factor):
+                ret, frame = cap.read()
+                if not ret:
+                    break
             if not ret:
                 break
 
@@ -162,12 +166,13 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
     return trajectory
 
 
-def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
+def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downsample_factor: int):
     '''
     Extracts trajectories of the camera from the topdown video files.
     Args:
         topdown_dir: The directory containing topdown videos.
         aruco_config_file: The path to the ArUco config file.
+        downsample_factor: The rate at which to downsample the video frames.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the trajectory.
     '''
@@ -182,7 +187,7 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
     # Extract the trajectory from each video file
     trajectories = []
     for video_file in tqdm(video_files, desc='Processing videos'):
-        trajectory = extract_trajectory_from_video(video_file, aruco_config_file)
+        trajectory = extract_trajectory_from_video(video_file, aruco_config_file, downsample_factor)
         trajectories.append({
             'video_path': os.path.abspath(video_file),
             'trajectory': trajectory
@@ -196,6 +201,7 @@ def parse_args():
     parser.add_argument('--topdown_dir', type=str, required=True, help='The directory containing topdown videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--trajectory_save_path', type=str, required=True, help='The path to save the extracted trajectoris.')
+    parser.add_argument('--downsample_factor', type=int, default=1, help='The rate at which to downsample the video frames.')
     return parser.parse_args()
 
 
@@ -203,9 +209,10 @@ def main(args):
     topdown_dir          = args.topdown_dir
     aruco_config_file    = args.aruco_config_file
     trajectory_save_path = args.trajectory_save_path
+    downsample_factor    = args.downsample_factor
 
     # extract trajectories
-    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file)
+    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file, downsample_factor)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(trajectory_save_path)):
