@@ -2,3 +2,5 @@ opencv-contrib-python
 colorama
 numpy
 ffmpeg-python
+av
+imagecodecs==2023.9.18

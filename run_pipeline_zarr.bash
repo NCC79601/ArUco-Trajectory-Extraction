@@ -1,0 +1,1 @@
+python run_pipeline_zarr.py --videos_dir ./test_videos --output_path ./output/dataset.zarr.zip  --temp_dir ./temp --pipeline_config_path ./configs/pipeline_config.json
