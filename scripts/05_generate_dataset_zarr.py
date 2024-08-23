@@ -143,14 +143,12 @@ def generate_dataset(
             episode_data['robot0_demo_start_pose'] = demo_start_pose
             episode_data['robot0_demo_end_pose'] = demo_end_pose
 
-            print(f'episode data: {episode_data}')
-            print(f' > component shapes:')
-            for k, v in episode_data.items():
-                print(f'   - {k}: {v.shape}')
+            # print(f'episode data: {episode_data}')
+            # print(f' > component shapes:')
+            # for k, v in episode_data.items():
+            #     print(f'   - {k}: {v.shape}')
 
-            print(f'adding to replay buffer...')
             out_replay_buffer.add_episode(data=episode_data, compressors=None)
-            print(f'successfully added to replay buffer!')
 
             videos_dict[str(handheld_path)].append({
                 'camera_idx': 0,
