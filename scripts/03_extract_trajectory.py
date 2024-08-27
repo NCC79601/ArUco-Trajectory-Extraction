@@ -14,13 +14,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 num_workers = multiprocessing.cpu_count()
 
 
-def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downsample_factor: int):
+def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
     '''
     Extracts the trajectory (relative to the first frame) of the camera from the video file. 
     Args:
         video_file: The path to the video file.
         aruco_config_file: The path to the ArUco config file.
-        downsample_factor: The rate to downsample the video frames.
     Returns:
         A list of dictionaries, where each dictionary contains the translation vector and rotation vector of the camera related to the first frame.
     '''
@@ -38,10 +37,10 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
     else:
         raise NotImplementedError(f"ArUco dictionary {aruco_dict} is currently not supported.")
     
-    id_of_interest = []
+    topdown_ids = []
     for tag in aruco_tags:
         if not tag["is_gripper"]:
-            id_of_interest.append(tag["id"]) # ids of interest
+            topdown_ids.append(tag["id"]) # ids of interest
     id_to_tag_map = {tag['id']: tag for tag in aruco_tags} # id to tag mapping
 
     # Load the video
@@ -60,23 +59,22 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
 
     trajectory = []
 
-    first_tvec = None
-    first_rvec = None
+    start_tvec = None
+    start_rvec = None
     R_cam_0 = None
 
-    is_first_frame = True
+    start_frame_id = None
+    frame_id = -1
 
-    frame_id = 0
-
-    with tqdm(total=int(total_frames / downsample_factor), desc='Extracting', leave=False) as pbar:
+    with tqdm(total=int(total_frames), desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
-            for i in range(downsample_factor):
-                ret, frame = cap.read()
-                if not ret:
-                    break
+            ret, frame = cap.read()
             if not ret:
                 break
+
+            frame_id += 1
+            pbar.update(1)
 
             # Convert the frame to grayscale
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -85,24 +83,27 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
             parameters = aruco.DetectorParameters()
             corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
+            ids_o_i = []
+            if ids is not None:
+                for id in ids:
+                    if id[0] in topdown_ids:
+                        ids_o_i.append(id)
+
             current_tvec = None
             current_rvec = None
 
-            if ids is not None:
+            if len(ids_o_i):
+                # Detected tags
                 rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(corners, 0.1, cameraMatrix, distCoeffs) # default marker size 0.1
                 
-                for i in range(len(ids)):
-                    if ids[i][0] not in id_of_interest:
-                        continue
-
-                    id  = ids[i][0]
+                for i in range(len(ids_o_i)):
+                    id  = ids_o_i[i][0]
                     tag = id_to_tag_map[id]
 
                     marker_size = tag["size"]
                     tvec_cam_tag = tvecs[i][0] * marker_size / 0.1 # convert to real world size
                     rvec_cam_tag = rvecs[i][0]
                     R_cam_tag = cv2.Rodrigues(rvec_cam_tag)[0]
-
 
                     # transform to the block frame
                     rvec_block_tag = np.array(tag["rot_vec"], dtype=float)
@@ -116,17 +117,17 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
                     tvec = tvec_cam_block
                     rvec = rvec_cam_block
 
-                    if is_first_frame:
+                    if len(trajectory) == 0:
                         # Save as the first frame's pose
-                        first_tvec = tvec
-                        first_rvec = rvec
+                        start_frame_id = frame_id
+                        start_tvec = tvec
+                        start_rvec = rvec
                         R_cam_0    = R_cam_block
-                        break
                     
                     # Calculate the relative pose
                     R_0_block    = R_cam_0.T @ R_cam_block
                     rvec_0_block = cv2.Rodrigues(R_0_block)[0].flatten()
-                    tvec_0_block = R_cam_0.T @ (tvec - first_tvec)
+                    tvec_0_block = R_cam_0.T @ (tvec - start_tvec)
 
                     if current_tvec is None:
                         current_tvec = tvec_0_block
@@ -144,26 +145,36 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
             
             elif len(trajectory):
                 # Lose track of all tags, repeat pose of the last frame
-                current_tvec = trajectory[-1]['tvec']
-                current_rvec = trajectory[-1]['rvec']
+                current_tvec = np.array(trajectory[-1]['tvec'])
+                current_rvec = np.array(trajectory[-1]['rvec'])
+
+                print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
             
             else:
-                # If tags are not detected in the first frame, skip
-                continue
+                # If tags are not detected in the first frame, ignore
+                print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
+                pass
 
-            if is_first_frame:
-                is_first_frame = False
-            else:
-                # Save the current pose
+            # Save the current pose
+            if current_tvec is not None and current_rvec is not None:
                 current_pose = {
                     'frame_id': frame_id,
                     'tvec':     current_tvec.tolist(),
                     'rvec':     current_rvec.tolist()
                 }
                 trajectory.append(current_pose)
-            
-            frame_id += 1
-            pbar.update(1)
+            elif len(trajectory):
+                # If tags are not detected in the current frame, repeat the pose of the last frame
+                last_pose = trajectory[-1]
+                current_pose = {
+                    'frame_id': frame_id,
+                    'tvec':     last_pose['tvec'],
+                    'rvec':     last_pose['rvec']
+                }
+                trajectory.append(current_pose)
+            else:
+                # Skip
+                continue
     
     # Release the video capture
     cap.release()
@@ -174,13 +185,12 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str, downs
     }
 
 
-def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downsample_factor: int):
+def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
     '''
     Extracts trajectories of the camera from the topdown video files.
     Args:
         topdown_dir: The directory containing topdown videos.
         aruco_config_file: The path to the ArUco config file.
-        downsample_factor: The rate at which to downsample the video frames.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the trajectory.
     '''
@@ -195,7 +205,7 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downs
     # Extract the trajectory from each video file
     trajectories = []
 
-    with tqdm(total=len(video_files)) as pbar:
+    with tqdm(total=len(video_files), desc='Processing videos') as pbar:
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = set()
 
@@ -217,7 +227,6 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, downs
                     extract_trajectory_from_video,
                     video_file,
                     aruco_config_file,
-                    downsample_factor
                 ))
             
             # wait for the remaining processes to finish
@@ -234,7 +243,6 @@ def parse_args():
     parser.add_argument('--topdown_dir', type=str, required=True, help='The directory containing topdown videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--trajectory_save_path', type=str, required=True, help='The path to save the extracted trajectoris.')
-    parser.add_argument('--downsample_factor', type=int, default=1, help='The rate at which to downsample the video frames.')
     return parser.parse_args()
 
 
@@ -242,10 +250,9 @@ def main(args):
     topdown_dir          = args.topdown_dir
     aruco_config_file    = args.aruco_config_file
     trajectory_save_path = args.trajectory_save_path
-    downsample_factor    = args.downsample_factor
 
     # extract trajectories
-    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file, downsample_factor)
+    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(trajectory_save_path)):

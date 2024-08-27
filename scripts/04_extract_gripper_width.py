@@ -1,15 +1,21 @@
+import concurrent.futures
 import os
 import glob
 import json
 import cv2
 from cv2 import aruco
 import argparse
+import multiprocessing
 import numpy as np
 from tqdm import tqdm
 from colorama import Fore, Back, Style
+import concurrent
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+num_workers = multiprocessing.cpu_count()
 
 
-def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4', downsample_factor=1):
+def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4'):
     '''
     Extracts the gripper width from the video file. 
     Args:
@@ -17,7 +23,6 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
         aruco_config_file: The path to the ArUco config file.
         generate_undistorted_video: Whether to generate an undistorted video.
         output_path: The path to save the undistorted video.
-        downsample_factor: The rate to downsample the video frames. Default is 1.
     Returns:
         A list of gripper widths.
     '''
@@ -35,10 +40,10 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
     else:
         raise NotImplementedError(f"ArUco dictionary {aruco_dict} is currently not supported.")
     
-    id_of_interest = []
+    gripper_ids = []
     for tag in aruco_tags:
         if tag["is_gripper"]:
-            id_of_interest.append(tag["id"]) # ids of interest (gripper)
+            gripper_ids.append(tag["id"]) # ids of interest (gripper)
     id_to_tag_map = {tag['id']: tag for tag in aruco_tags} # id to tag mapping
 
     # Load the video
@@ -72,19 +77,16 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
 
     gripper_width_list = []
 
-    frame_id = 0
+    frame_id = -1
 
-    with tqdm(total=int(total_frames / downsample_factor), desc='Extracting', leave=False) as pbar:
+    with tqdm(total=int(total_frames), desc='Extracting', leave=False) as pbar:
         while True:
             # Read a frame from the video
-            for i in range(downsample_factor):
-                ret, frame = cap.read()
-                if not ret:
-                    break
+            ret, frame = cap.read()
+            frame_id += 1
             if not ret:
                 break
             # Undistort fisheye image to pinhole image
-            # frame = cv2.fisheye.undistortImage(frame, cameraMatrix, distCoeffs)
             frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
             # Convert the frame to grayscale
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -93,22 +95,26 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
             parameters = aruco.DetectorParameters()
             corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
+            ids_o_i = []
+            if ids is not None:
+                for id in ids:
+                    if id[0] in gripper_ids:
+                        ids_o_i.append(id)
+
             gripper_tag_pos = {
                 "frame_id": frame_id,
                 "left_gripper_pos": None,
                 "right_gripper_pos": None
             }
 
-            frame_id += 1
-
-            if ids is not None:
+            if len(ids_o_i):
                 rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(corners, 0.1, pinhole_cameraMatrix, pinhole_distCoeffs) # default marker size 0.1
                 
-                for i in range(len(ids)):
-                    if ids[i][0] not in id_of_interest:
+                for i in range(len(ids_o_i)):
+                    if ids_o_i[i][0] not in gripper_ids:
                         continue
 
-                    id  = ids[i][0]
+                    id  = ids_o_i[i][0]
                     tag = id_to_tag_map[id]
                     marker_size = tag["size"]
                     tvec_cam_tag = tvecs[i][0] * marker_size / 0.1 # convert to real world size
@@ -118,7 +124,8 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
                     elif id == 1:
                         gripper_tag_pos["right_gripper_pos"] = tvec_cam_tag.tolist()
                     
-                    frame = cv2.drawFrameAxes(frame, pinhole_cameraMatrix, pinhole_distCoeffs, rvecs[i], tvecs[i], 0.05)
+                    if generate_undistorted_video:
+                        frame = cv2.drawFrameAxes(frame, pinhole_cameraMatrix, pinhole_distCoeffs, rvecs[i], tvecs[i], 0.05)
             
             if generate_undistorted_video:
                 out.write(frame)
@@ -130,9 +137,16 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
                 })
             elif len(gripper_width_list) > 0:
                 # If one of the gripper tags is not detected, use the previous frame's position
-                gripper_width_list.append(gripper_width_list[-1])
+                last = gripper_width_list[-1]
+                gripper_width_list.append({
+                    "frame_id": gripper_tag_pos["frame_id"],
+                    "gripper_width": last["gripper_width"]
+                })
+
+                print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
             else:
                 # Skip
+                print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
                 pass
             
             pbar.update(1)
@@ -143,16 +157,18 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
     if generate_undistorted_video:
         out.release()
 
-    return gripper_width_list
+    return {
+        'video_path': os.path.abspath(video_file),
+        'gripper_width': gripper_width_list
+    }
 
 
-def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str, downsample_factor: int = 1):
+def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
     '''
     Extracts gripper widths from all the videos in the directory.
     Args:
         handheld_dir: The directory containing handheld videos.
         aruco_config_file: The path to the ArUco config file.
-        downsample_factor: The rate to downsample the video frames. Default is 1.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the gripper widths.
     '''
@@ -166,13 +182,36 @@ def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str, d
 
     # Extract the trajectory from each video file
     gripper_widths = []
-    for video_file in tqdm(video_files, desc='Processing videos'):
-        gripper_width = extract_gripper_width_from_video(video_file, aruco_config_file, downsample_factor=downsample_factor)
-        gripper_widths.append({
-            'video_path': os.path.abspath(video_file),
-            'gripper_width': gripper_width
-        })
-    
+
+    with tqdm(total=len(video_files), desc='Processing videos') as pbar:
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = set()
+
+            for video_file in video_files:
+                if len(futures) >= num_workers:
+                    done, futures = concurrent.futures.wait(
+                        futures,
+                        return_when=concurrent.futures.FIRST_COMPLETED
+                    )
+
+                    for future in done:
+                        gripper_widths.append(future.result())
+                        pbar.update(1)
+                
+                # add new process
+                futures.add(executor.submit(
+                    extract_gripper_width_from_video,
+                    video_file,
+                    aruco_config_file
+                ))
+            
+            # wait for the remaining process to finish
+            done, futures = concurrent.futures.wait(futures)
+
+            for future in done:
+                gripper_widths.append(future.result())
+                pbar.update(1)
+
     return gripper_widths
 
 
@@ -181,7 +220,6 @@ def parse_args():
     parser.add_argument('--handheld_dir', type=str, required=True, help='The directory containing handheld videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--gripper_widths_save_path', type=str, default='./gripper_widths.json', help='The path to save gripper widths.')
-    parser.add_argument('--downsample_factor', type=int, default=1, help='The rate at which to downsample the video frames.')
     return parser.parse_args()
 
 
@@ -189,10 +227,9 @@ def main(args):
     handheld_dir             = args.handheld_dir
     aruco_config_file        = args.aruco_config_file
     gripper_widths_save_path = args.gripper_widths_save_path
-    downsample_factor        = args.downsample_factor
 
     # extract trajectories
-    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file, downsample_factor)
+    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(gripper_widths_save_path)):

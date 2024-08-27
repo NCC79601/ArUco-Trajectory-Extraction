@@ -86,15 +86,24 @@ def generate_dataset(
         eef_pos = []
         eef_rot = []
         _gripper_widths = []
-        video_start = 0
-        video_end = 0
+        video_start = max(
+            trajectory[0]['frame_id'],
+            gripper_width[0]['frame_id']
+        )
+        video_end = video_start
 
         i = 0 # for topdown video
         j = 0 # for handheld video
-        
-        # cap = cv2.VideoCapture(handheld_path)
-        # read first frame
-        # ret, frame = cap.read()
+        while i < len(trajectory):
+            if trajectory[i]['frame_id'] < video_start:
+                i += 1
+            else:
+                break
+        while j < len(gripper_width):
+            if gripper_width[j]['frame_id'] < video_start:
+                j += 1
+            else:
+                break
         
         with tqdm(
             total=min(len(trajectory), len(gripper_width)),
@@ -102,20 +111,6 @@ def generate_dataset(
             leave=False
         ) as pbar:
             while i < len(trajectory) and j < len(gripper_width):
-                traj_frame_id = trajectory[i]['frame_id']
-                grip_frame_id = gripper_width[j]['frame_id']
-
-                if traj_frame_id != grip_frame_id:
-                    if traj_frame_id < grip_frame_id:
-                        i += 1
-                    else:
-                        j += 1
-                        video_start =j
-                    continue
-                
-                # TODO: downsample the frame to 224x224
-                # frame = cv2.resize(frame, (224, 224))
-
                 eef_pos.append(trajectory[i]['tvec'])
                 eef_rot.append(trajectory[i]['rvec'])
                 _gripper_widths.append(np.array([gripper_width[j]['gripper_width']]))
@@ -123,46 +118,39 @@ def generate_dataset(
                 i += 1
                 j += 1
                 video_end = j
-                
-                # read next frame
-                # ret, frame = cap.read()
 
                 pbar.update(1)
-
-            # cap.release()
                            
-            demo_start_pose = np.empty((len(eef_pos), 6))
-            demo_end_pose   = np.empty_like(demo_start_pose)
+        demo_start_pose = np.empty((len(eef_pos), 6))
+        demo_end_pose   = np.empty_like(demo_start_pose)
 
-            demo_start_pose[:] = np.array([0, 0, 0, 0, 0, 0])
-            demo_end_pose[:] = np.concatenate([eef_pos[-1], eef_rot[-1]])
+        demo_start_pose[:] = np.array([0, 0, 0, 0, 0, 0])
+        demo_end_pose[:] = np.concatenate([eef_pos[-1], eef_rot[-1]])
 
-            episode_data['robot0_eef_pos'] = np.array(eef_pos)
-            episode_data['robot0_eef_rot_axis_angle'] = np.array(eef_rot)
-            episode_data['robot0_gripper_width'] = np.array(_gripper_widths)
-            episode_data['robot0_demo_start_pose'] = demo_start_pose
-            episode_data['robot0_demo_end_pose'] = demo_end_pose
+        episode_data['robot0_eef_pos'] = np.array(eef_pos)
+        episode_data['robot0_eef_rot_axis_angle'] = np.array(eef_rot)
+        episode_data['robot0_gripper_width'] = np.array(_gripper_widths)
+        episode_data['robot0_demo_start_pose'] = demo_start_pose
+        episode_data['robot0_demo_end_pose'] = demo_end_pose
 
-            # print(f'episode data: {episode_data}')
-            # print(f' > component shapes:')
-            # for k, v in episode_data.items():
-            #     print(f'   - {k}: {v.shape}')
+        out_replay_buffer.add_episode(data=episode_data, compressors=None)
 
-            out_replay_buffer.add_episode(data=episode_data, compressors=None)
-
-            videos_dict[str(handheld_path)].append({
-                'camera_idx': 0,
-                'frame_start': video_start,
-                'frame_end': video_end,
-                'buffer_start': buffer_start
-            })
-            # print(f'videos_dict: {videos_dict}') 
-            buffer_start += video_end - video_start
+        videos_dict[str(handheld_path)].append({
+            'camera_idx': 0,
+            'frame_start': video_start,
+            'frame_end': video_end,
+            'buffer_start': buffer_start
+        })
+        buffer_start += video_end - video_start
         
-        vid_args.extend(videos_dict.items())
-        all_videos.update(videos_dict.keys())
+    vid_args.extend(videos_dict.items())
+    all_videos.update(videos_dict.keys())
     
     print(f"[UMI] {len(all_videos)} videos used in total!")
+
+    print(f"len(vid_args): {len(vid_args)}")
+    print(f"len(videos_dict.items()): {len(videos_dict.items())}")
+    print(f"len(all_videos): {len(all_videos)}")
 
     # get image size
     with av.open(vid_args[0][0]) as container:
@@ -199,7 +187,16 @@ def generate_dataset(
         def transform(img: np.ndarray):
             assert img.shape == ((ih,iw,3))
             # crop
-            img = img[h_slice, w_slice, c_slice]
+            def extend_as_square(img):
+                h, w, c = img.shape
+                if h > w:
+                    pad = (h-w)//2
+                    img = np.pad(img, ((0,0),(pad,pad),(0,0)), mode='constant')
+                elif w > h:
+                    pad = (w-h)//2
+                    img = np.pad(img, ((pad,pad),(0,0),(0,0)), mode='constant')
+                return img
+            img = extend_as_square(img[h_slice, w_slice, c_slice])
             # resize
             img = cv2.resize(img, out_res, interpolation=interp_method)
             return img
@@ -253,16 +250,6 @@ def generate_dataset(
                     # do current task
                     img = frame.to_ndarray(format='rgb24')
 
-                    # inpaint tags
-                    # this_det = tag_detection_results[frame_idx]
-                    # all_corners = [x['corners'] for x in this_det['tag_dict'].values()]
-                    # for corners in all_corners:
-                    #     img = inpaint_tag(img, corners)
-                        
-                    # mask out gripper
-                    # img = draw_predefined_mask(img, color=(0,0,0), 
-                    #     mirror=no_mirror, gripper=True, finger=False)
-                    # resize
                     if fisheye_converter is None:
                         img = resize_tf(img)
                     else:
@@ -283,7 +270,7 @@ def generate_dataset(
                     assert False
 
     # compress videos to zarr 
-    with tqdm(total=len(vid_args)) as pbar:
+    with tqdm(total=len(vid_args), desc='Compressing videos to zarr') as pbar:
         # one chunk per thread, therefore no synchronization needed
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = set()
@@ -303,6 +290,8 @@ def generate_dataset(
     # dump to disk
     output = output_path
     print(f"Saving ReplayBuffer to {output}")
+    if not os.path.exists(os.path.dirname(output)):
+        os.makedirs(os.path.dirname(output))
     with zarr.ZipStore(output, mode='w') as zip_store:
         out_replay_buffer.save_to_store(
             store=zip_store

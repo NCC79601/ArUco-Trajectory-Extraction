@@ -38,17 +38,15 @@ def generate_matching(videos_dir: str):
         print(f"{Fore.YELLOW}[WARN] Number of handheld and topdown videos do not match!{Style.RESET_ALL}")
 
     handheld_videos = [{
-        "path": video,
-        "start_time": get_start_time(video)
+        "path": video
     } for video in handheld_videos_dir]
     topdown_videos = [{
-        "path": video,
-        "start_time": get_start_time(video)
+        "path": video
     } for video in topdown_videos_dir]
     
-    # sort the videos according to start time
-    handheld_videos.sort(key=lambda x: x["start_time"])
-    topdown_videos.sort( key=lambda x: x["start_time"])
+    # sort the videos according to its name
+    handheld_videos.sort(key=lambda x: x["path"])
+    topdown_videos.sort( key=lambda x: x["path"])
 
     # generate matching pairs
     matching_pairs = []
