@@ -167,6 +167,7 @@ configs/camera/*/images
 configs/camera/*/videos
 videos/
 test_videos/
+videos*/
 .DS_Store
 
 plot_trajectory_output.mp4
@@ -175,6 +176,7 @@ temp/
 temp_frames/
 
 output/*
+output*/
 
 trajectory.json
 gripper_widths.json
