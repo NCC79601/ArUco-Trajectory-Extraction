@@ -4,12 +4,10 @@
     "handheld_camera_calibration_file":
         "./configs/camera/GoPro_11_fisheye/calibration.json",
 
-    "frame_rate_downsample_factor": 3,
-
     "skip_calibrate_camera": true,
     "skip_generate_aruco_config": true,
-    "skip_match_videos": true,
-    "skip_extract_trajectory": true,
-    "skip_extract_gripper_width": true,
+    "skip_match_videos": false,
+    "skip_extract_trajectory": false,
+    "skip_extract_gripper_width": false,
     "skip_generate_dataset": false
 }
