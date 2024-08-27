@@ -10,16 +10,20 @@ from tqdm import tqdm
 from colorama import Fore, Back, Style
 import concurrent
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils.logger import get_logger
 
 num_workers = multiprocessing.cpu_count()
 
 
-def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
+def extract_trajectory_from_video(video_file: str, aruco_config_file: str, logger=None):
     '''
     Extracts the trajectory (relative to the first frame) of the camera from the video file. 
     Args:
         video_file: The path to the video file.
         aruco_config_file: The path to the ArUco config file.
+        logger: The logger to log the progress.
     Returns:
         A list of dictionaries, where each dictionary contains the translation vector and rotation vector of the camera related to the first frame.
     '''
@@ -149,11 +153,14 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
                 current_rvec = np.array(trajectory[-1]['rvec'])
 
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
+                if logger:
+                    logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
             
             else:
                 # If tags are not detected in the first frame, ignore
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
-                pass
+                if logger:
+                    logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
 
             # Save the current pose
             if current_tvec is not None and current_rvec is not None:
@@ -185,12 +192,13 @@ def extract_trajectory_from_video(video_file: str, aruco_config_file: str):
     }
 
 
-def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
+def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str, logger=None):
     '''
     Extracts trajectories of the camera from the topdown video files.
     Args:
         topdown_dir: The directory containing topdown videos.
         aruco_config_file: The path to the ArUco config file.
+        logger: The logger to log the progress.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the trajectory.
     '''
@@ -227,6 +235,7 @@ def extract_trajectory_from_path(topdown_dir: str, aruco_config_file: str):
                     extract_trajectory_from_video,
                     video_file,
                     aruco_config_file,
+                    logger=logger
                 ))
             
             # wait for the remaining processes to finish
@@ -243,6 +252,7 @@ def parse_args():
     parser.add_argument('--topdown_dir', type=str, required=True, help='The directory containing topdown videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--trajectory_save_path', type=str, required=True, help='The path to save the extracted trajectoris.')
+    parser.add_argument('--logger_name', type=str, default='default_logger', help='The name of the logger.')
     return parser.parse_args()
 
 
@@ -250,9 +260,12 @@ def main(args):
     topdown_dir          = args.topdown_dir
     aruco_config_file    = args.aruco_config_file
     trajectory_save_path = args.trajectory_save_path
+    logger_name          = args.logger_name
+
+    logger = get_logger(logger_name)
 
     # extract trajectories
-    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file)
+    trajectories = extract_trajectory_from_path(topdown_dir, aruco_config_file, logger)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(trajectory_save_path)):

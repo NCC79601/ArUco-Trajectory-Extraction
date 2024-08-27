@@ -11,11 +11,14 @@ from tqdm import tqdm
 from colorama import Fore, Back, Style
 import concurrent
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils.logger import get_logger
 
 num_workers = multiprocessing.cpu_count()
 
 
-def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4'):
+def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, generate_undistorted_video=False, output_path='./undistorted_video.mp4', logger=None):
     '''
     Extracts the gripper width from the video file. 
     Args:
@@ -23,6 +26,7 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
         aruco_config_file: The path to the ArUco config file.
         generate_undistorted_video: Whether to generate an undistorted video.
         output_path: The path to save the undistorted video.
+        logger: The logger object.
     Returns:
         A list of gripper widths.
     '''
@@ -144,10 +148,11 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
                 })
 
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
+                logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
             else:
                 # Skip
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
-                pass
+                logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
             
             pbar.update(1)
     
@@ -163,12 +168,13 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
     }
 
 
-def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
+def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str, logger=None):
     '''
     Extracts gripper widths from all the videos in the directory.
     Args:
         handheld_dir: The directory containing handheld videos.
         aruco_config_file: The path to the ArUco config file.
+        logger: The logger object.
     Returns:
         A list of dictionaries, where each dictionary contains the video file path and the gripper widths.
     '''
@@ -202,7 +208,8 @@ def extract_gripper_width_from_path(handheld_dir: str, aruco_config_file: str):
                 futures.add(executor.submit(
                     extract_gripper_width_from_video,
                     video_file,
-                    aruco_config_file
+                    aruco_config_file,
+                    logger
                 ))
             
             # wait for the remaining process to finish
@@ -220,6 +227,7 @@ def parse_args():
     parser.add_argument('--handheld_dir', type=str, required=True, help='The directory containing handheld videos.')
     parser.add_argument('--aruco_config_file', type=str, required=True, help='The path to the ArUco config file.')
     parser.add_argument('--gripper_widths_save_path', type=str, default='./gripper_widths.json', help='The path to save gripper widths.')
+    parser.add_argument('--logger_name', type=str, default='default_logger', help='The name of the logger.')
     return parser.parse_args()
 
 
@@ -227,9 +235,12 @@ def main(args):
     handheld_dir             = args.handheld_dir
     aruco_config_file        = args.aruco_config_file
     gripper_widths_save_path = args.gripper_widths_save_path
+    logger_name              = args.logger_name
+
+    logger = get_logger(logger_name)
 
     # extract trajectories
-    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file)
+    trajectories = extract_gripper_width_from_path(handheld_dir, aruco_config_file, logger)
 
     # save trajectories
     if not os.path.exists(os.path.dirname(gripper_widths_save_path)):
