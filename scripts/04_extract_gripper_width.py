@@ -148,11 +148,13 @@ def extract_gripper_width_from_video(video_file: str, aruco_config_file: str, ge
                 })
 
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
-                logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
+                if logger is not None:
+                    logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
             else:
                 # Skip
                 print(f'{Fore.YELLOW}[WARN] Frame {frame_id} in video {video_file} lost track of all tags.{Style.RESET_ALL}')
-                logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
+                if logger is not None:
+                    logger.warning(f'Frame {frame_id} in video {video_file} lost track of all tags.')
             
             pbar.update(1)
     
