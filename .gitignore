@@ -182,3 +182,5 @@ trajectory.json
 gripper_widths.json
 
 zarr_test/
+misc/
+*.zip
